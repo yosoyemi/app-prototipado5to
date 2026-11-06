@@ -1,5 +1,5 @@
 import { configureStore } from '@reduxjs/toolkit';
-import authReducer, { login } from './authSlice';
+import authReducer, { restoreSession } from './authSlice';
 import tasksReducer, { setTasks } from './tasksSlice';
 import { loadLocalData, saveLocalData } from '../storage/localStorage';
 
@@ -15,8 +15,8 @@ export function initializeStore(onStorageError: () => void): Promise<void> {
     initialization = (async () => {
       const saved = await loadLocalData();
       store.dispatch(setTasks(saved.tasks));
-      if (saved.user === 'alumno') {
-        store.dispatch(login());
+      if (saved.session) {
+        store.dispatch(restoreSession(saved.session));
       }
       let previous = store.getState();
       store.subscribe(() => {

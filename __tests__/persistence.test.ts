@@ -20,13 +20,14 @@ test('recupera sesión y tareas sin sobrescribir la carga inicial', async () => 
       completed: true,
     },
   ];
-  await saveLocalData({ user: 'alumno', isAuthenticated: true }, tasks);
+  const session = { user: 'alumno' as const, token: 'a'.repeat(64) };
+  await saveLocalData({ ...session, isAuthenticated: true }, tasks);
   jest.clearAllMocks();
   const { store, initializeStore } =
     require('../src/store') as typeof import('../src/store');
   await initializeStore(jest.fn());
   expect(store.getState()).toEqual({
-    auth: { user: 'alumno', isAuthenticated: true },
+    auth: { ...session, isAuthenticated: true },
     tasks,
   });
   expect(storage.multiSet).not.toHaveBeenCalled();
@@ -36,12 +37,12 @@ test('recupera sesión y tareas sin sobrescribir la carga inicial', async () => 
   store.dispatch(toggleTask('saved'));
   await new Promise<void>(resolve => setImmediate(resolve));
   expect(await loadLocalData()).toEqual({
-    user: 'alumno',
+    session: { user: 'alumno', token: store.getState().auth.token },
     tasks: store.getState().tasks,
   });
   store.dispatch(logout());
   await new Promise<void>(resolve => setImmediate(resolve));
-  expect((await loadLocalData()).user).toBeNull();
+  expect((await loadLocalData()).session).toBeNull();
   expect((await loadLocalData()).tasks).toHaveLength(2);
 });
 
@@ -84,3 +85,43 @@ test('un fallo al guardar se comunica y la siguiente escritura se recupera', asy
   await new Promise<void>(resolve => setImmediate(resolve));
   expect(await storage.getItem('@actividades/tasks')).toContain('Recuperada');
 });
+
+test('migra la sesión anterior a un token sin perder las tareas', async () => {
+  const storage = require('@react-native-async-storage/async-storage')
+    .default as jest.Mocked<typeof AsyncStorage>;
+  const { loadLocalData } =
+    require('../src/storage/localStorage') as typeof import('../src/storage/localStorage');
+  await storage.setItem('@actividades/session', JSON.stringify('alumno'));
+  const saved = await loadLocalData();
+  expect(saved.session?.token).toMatch(/^[a-f0-9]{64}$/);
+  expect(JSON.parse((await storage.getItem('@actividades/session'))!)).toEqual(
+    saved.session,
+  );
+  expect((await loadLocalData()).session?.token).toBe(saved.session?.token);
+});
+
+test.each([
+  '{"user":"alumno","token":""}',
+  '{incorrecto',
+  '{"user":"otro","token":"token"}',
+])(
+  'una sesión inválida vuelve al login sin borrar las tareas: %s',
+  async sessionText => {
+    const storage = require('@react-native-async-storage/async-storage')
+      .default as jest.Mocked<typeof AsyncStorage>;
+    const { loadLocalData } =
+      require('../src/storage/localStorage') as typeof import('../src/storage/localStorage');
+    const tasks = [
+      { id: '1', title: 'Conservar', description: '', completed: false },
+    ];
+    await storage.multiSet([
+      ['@actividades/session', sessionText],
+      ['@actividades/tasks', JSON.stringify(tasks)],
+    ]);
+    expect(await loadLocalData()).toEqual({ session: null, tasks });
+    expect(await storage.getItem('@actividades/session')).toBeNull();
+    expect(JSON.parse((await storage.getItem('@actividades/tasks'))!)).toEqual(
+      tasks,
+    );
+  },
+);

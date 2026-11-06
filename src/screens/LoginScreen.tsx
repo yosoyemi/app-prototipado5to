@@ -14,8 +14,12 @@ export default function LoginScreen() {
       setError('Usuario o contraseña incorrectos.');
       return;
     }
-    setPassword('');
-    dispatch(login());
+    try {
+      dispatch(login());
+      setPassword('');
+    } catch {
+      setError('No se pudo crear la sesión local. Vuelve a intentarlo.');
+    }
   };
   return (
     <ScrollView

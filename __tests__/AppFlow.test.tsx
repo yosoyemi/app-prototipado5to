@@ -13,7 +13,7 @@ import { store } from '../src/store';
 import { deleteTask } from '../src/store/tasksSlice';
 
 test('login, tareas, filtros, detalle, perfil y cierre de sesión', async () => {
-  configure({defaultIncludeHiddenElements: true, asyncUtilTimeout: 10000});
+  configure({ defaultIncludeHiddenElements: true, asyncUtilTimeout: 10000 });
   render(<App />);
   await act(async () => {});
   await screen.findByLabelText('Usuario');
@@ -25,6 +25,14 @@ test('login, tareas, filtros, detalle, perfil y cierre de sesión', async () => 
   fireEvent.changeText(screen.getByLabelText('Contraseña'), '1234');
   fireEvent.press(screen.getByText('Iniciar sesión'));
   fireEvent.press(await screen.findByText('Ver tareas'));
+  const sessionToken = store.getState().auth.token;
+  expect(sessionToken).toMatch(/^[a-f0-9]{64}$/);
+  await waitFor(async () => {
+    const session = JSON.parse(
+      (await AsyncStorage.getItem('@actividades/session'))!,
+    );
+    expect(session).toEqual({ user: 'alumno', token: sessionToken });
+  });
   fireEvent.press(await screen.findByText('Agregar tarea'));
   expect(screen.getByText('Escribe un título para la tarea.')).toBeTruthy();
   fireEvent.changeText(screen.getByLabelText('Título'), 'Estudiar Redux');
@@ -63,10 +71,11 @@ test('login, tareas, filtros, detalle, perfil y cierre de sesión', async () => 
   await screen.findByLabelText('Usuario');
   expect(store.getState().auth.isAuthenticated).toBe(false);
   await waitFor(async () => {
-    expect(await AsyncStorage.getItem('@actividades/session')).toBe('null');
+    expect(await AsyncStorage.getItem('@actividades/session')).toBeNull();
     expect(await AsyncStorage.getItem('@actividades/tasks')).toBe('[]');
   });
   expect(
     JSON.stringify(jest.mocked(AsyncStorage.multiSet).mock.calls),
-  ).not.toContain('1234');
+  ).not.toContain('password');
+  expect(store.getState().auth.token).toBeNull();
 });
