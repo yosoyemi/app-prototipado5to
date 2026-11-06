@@ -1,10 +1,10 @@
-import {createSlice} from '@reduxjs/toolkit';
+import { createSlice } from '@reduxjs/toolkit';
 
 export interface AuthState {
   user: string | null;
   isAuthenticated: boolean;
 }
-const initialState: AuthState = {user: null, isAuthenticated: false};
+const initialState: AuthState = { user: null, isAuthenticated: false };
 const authSlice = createSlice({
   name: 'auth',
   initialState,
@@ -18,5 +18,5 @@ const authSlice = createSlice({
     },
   },
 });
-export const {login, logout} = authSlice.actions;
+export const { login, logout } = authSlice.actions;
 export default authSlice.reducer;
